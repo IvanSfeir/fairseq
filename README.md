@@ -1,3 +1,10 @@
+# SfeirSeq, an update to FairSeq 
+## Implementing end-to-end Coreference Resolution into FairSeq using Transformer
+
+Internship done in Laboratoire d'Informatique de Grenoble
+
+**Original README:**
+
 # Introduction <img src="fairseq_logo.png" width="50"> 
 
 Fairseq(-py) is a sequence modeling toolkit that allows researchers and
