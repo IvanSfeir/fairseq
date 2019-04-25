@@ -23,6 +23,10 @@ from fairseq.trainer import Trainer
 from fairseq.meters import AverageMeter, StopwatchMeter
 from fairseq.utils import import_user_module
 
+#leme
+import tensorboardX as tb
+import time
+#leme
 
 def main(args, init_distributed=False):
     import_user_module(args)
@@ -101,24 +105,59 @@ def main(args, init_distributed=False):
     train_meter.start()
     valid_losses = [None]
     valid_subsets = args.valid_subset.split(',')
+
+    #leme
+    writer = tb.SummaryWriter("/home/getalp/sfeirj/results/models/m16")
+    #leme
+
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
         # train for one epoch
-        train(args, trainer, task, epoch_itr)
+        #train(args, trainer, task, epoch_itr)
+        #leme
+        train(args, trainer, task, epoch_itr, writer)
+        #stats = train(args, trainer, task, epoch_itr, writer)
+        #print(stats["loss"].avg)
+        #print("TESTOS")
+        #assert False
+        print("{} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
+        time.sleep(1)
+        #leme
 
         if epoch_itr.epoch % args.validate_interval == 0:
             valid_losses = validate(args, trainer, task, epoch_itr, valid_subsets)
 
+        #leme
+        writer.add_scalar("valid_loss", valid_losses[0], epoch_itr.epoch)
+        #leme
+
         # only use first validation loss to update the learning rate
         lr = trainer.lr_step(epoch_itr.epoch, valid_losses[0])
+
+        #leme
+        print("{} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
+        time.sleep(1)
+        #leme
 
         # save checkpoint
         if epoch_itr.epoch % args.save_interval == 0:
             save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
+
     train_meter.stop()
     print('| done training in {:.1f} seconds'.format(train_meter.sum))
 
+    #leme
+    #filepath = "/home/getalp/sfeirj/results/waves/results_wave_1"
+    #with open(filepath, "a") as f:
+    #    f.write("{},".format(epoch_itr.epoch))
+    #    print("")
+    #leme
 
-def train(args, trainer, task, epoch_itr):
+    #leme
+    print("{} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
+    #leme
+
+
+def train(args, trainer, task, epoch_itr, writer):
     """Train the model for one epoch."""
     # Update parameters every N batches
     update_freq = args.update_freq[epoch_itr.epoch - 1] \
@@ -171,6 +210,10 @@ def train(args, trainer, task, epoch_itr):
     for k, meter in extra_meters.items():
         stats[k] = meter.avg
     progress.print(stats, tag='train', step=stats['num_updates'])
+
+    #leme
+    writer.add_scalar("loss", stats["loss"].avg, epoch_itr.epoch)
+    #leme
 
     # reset training meters
     for k in [

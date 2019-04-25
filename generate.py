@@ -15,6 +15,10 @@ from fairseq import bleu, options, progress_bar, tasks, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
 from fairseq.utils import import_user_module
 
+#leme
+import numpy as np
+#leme
+
 
 def main(args):
     assert args.path is not None, '--path required for generation!'
@@ -84,6 +88,12 @@ def main(args):
     gen_timer = StopwatchMeter()
     generator = task.build_generator(args)
 
+    #leme
+    #parent_path = "/home/getalp/sfeirj/"
+    #my_differences_list = []
+    #my_differences_count = 0
+    #leme
+
     # Generate and compute BLEU score
     if args.sacrebleu:
         scorer = bleu.SacrebleuScorer()
@@ -101,6 +111,15 @@ def main(args):
             prefix_tokens = None
             if args.prefix_size > 0:
                 prefix_tokens = sample['target'][:, :args.prefix_size]
+
+            #leme
+            #my_index = 0
+            #my_step = 20
+            #print(sample["net_input"]["src_tokens"][my_index:my_index+my_step])
+            #print(sample["net_input"]["src_lengths"][my_index:my_index+my_step])
+            #print(sample["target"][my_index:my_index+my_step])
+            #assert False
+            #leme
 
             gen_timer.start()
             hypos = task.inference_step(generator, models, sample, prefix_tokens)
@@ -145,6 +164,16 @@ def main(args):
                         remove_bpe=args.remove_bpe,
                     )
 
+                    #leme
+                    #print(target_str, hypo_str, target_tokens, hypo_tokens)
+                    #print(len(target_str)-len(hypo_str))
+                    #my_diff = len(target_str.split(" ")) - len(hypo_str.split(" "))
+                    #my_differences_list.append(my_diff)
+                    #if my_diff != 0:
+                    #    my_differences_count += 1
+                    #assert False
+                    #leme
+
                     if not args.quiet:
                         print('H-{}\t{}\t{}'.format(sample_id, hypo['score'], hypo_str))
                         print('P-{}\t{}'.format(
@@ -171,6 +200,11 @@ def main(args):
                         else:
                             scorer.add(target_tokens, hypo_tokens)
 
+                    #leme
+                    #with open("{}data/{}_predictions".format(parent_path, args.gen_subset), 'a') as f:
+                    #    f.write("{}\t{}\t{}\n".format(src_str, target_str, hypo_str))
+                    #leme
+
             wps_meter.update(num_generated_tokens)
             t.log({'wps': round(wps_meter.avg)})
             num_sentences += sample['nsentences']
@@ -179,6 +213,19 @@ def main(args):
         num_sentences, gen_timer.n, gen_timer.sum, num_sentences / gen_timer.sum, 1. / gen_timer.avg))
     if has_target:
         print('| Generate {} with beam={}: {}'.format(args.gen_subset, args.beam, scorer.result_string()))
+
+    #leme
+
+    # Write 
+    #bleup = [p * 100 for p in scorer.precision()[:4]]
+    #with open(parent_path+"results/waves/results_wave_1", "a") as f:
+    #    f.write("{},{},{},{},{},{},{},{},{},{},{},{}".format(scorer.score(order=4), *bleup, \
+    #                scorer.brevity(), scorer.stat.predlen/scorer.stat.reflen, \
+    #                scorer.stat.predlen, scorer.stat.reflen, my_differences_count, \
+    #                np.mean(my_differences_list), np.sqrt(np.mean([d**2 for d in my_differences_list]))))
+    #    f.write("\n")
+    #leme
+
     return scorer
 
 
