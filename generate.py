@@ -89,7 +89,7 @@ def main(args):
     generator = task.build_generator(args)
 
     #leme
-    #parent_path = "/home/getalp/sfeirj/"
+    parent_path = "/home/getalp/sfeirj/"
     #my_differences_list = []
     #my_differences_count = 0
     #leme
@@ -201,8 +201,8 @@ def main(args):
                             scorer.add(target_tokens, hypo_tokens)
 
                     #leme
-                    #with open("{}data/{}_predictions".format(parent_path, args.gen_subset), 'a') as f:
-                    #    f.write("{}\t{}\t{}\n".format(src_str, target_str, hypo_str))
+                    with open("{}data/{}_predictions".format(parent_path, args.gen_subset), 'a') as f:
+                        f.write("{}\t{}\t{}\n".format(src_str, target_str, hypo_str))
                     #leme
 
             wps_meter.update(num_generated_tokens)

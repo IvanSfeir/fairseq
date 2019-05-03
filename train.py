@@ -127,7 +127,7 @@ def main(args, init_distributed=False):
             valid_losses = validate(args, trainer, task, epoch_itr, valid_subsets)
 
         #leme
-        writer.add_scalar("valid_loss", valid_losses[0], epoch_itr.epoch)
+        #writer.add_scalar("valid_loss", valid_losses[0], epoch_itr.epoch)
         #leme
 
         # only use first validation loss to update the learning rate
@@ -153,6 +153,7 @@ def main(args, init_distributed=False):
     #leme
 
     #leme
+    writer.close()
     print("{} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
     #leme
 
@@ -212,7 +213,7 @@ def train(args, trainer, task, epoch_itr, writer):
     progress.print(stats, tag='train', step=stats['num_updates'])
 
     #leme
-    writer.add_scalar("loss", stats["loss"].avg, epoch_itr.epoch)
+    #writer.add_scalar("loss", stats["loss"].avg, epoch_itr.epoch)
     #leme
 
     # reset training meters
