@@ -17,14 +17,15 @@ from fairseq.modules import (
     LearnedPositionalEmbedding, MultiheadAttention, SinusoidalPositionalEmbedding,
 )
 
+#leme added MyFairseqModel
 from . import (
     FairseqIncrementalDecoder, FairseqEncoder, FairseqLanguageModel,
-    FairseqModel, register_model, register_model_architecture,
+    FairseqModel, MyFairseqModel, register_model, register_model_architecture,
 )
 
-
+#leme inherited from MyFairseqModel
 @register_model('transformer')
-class TransformerModel(FairseqModel):
+class TransformerModel(MyFairseqModel):
     """
     Transformer model from `"Attention Is All You Need" (Vaswani, et al, 2017)
     <https://arxiv.org/abs/1706.03762>`_.

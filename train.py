@@ -71,6 +71,10 @@ def main(args, init_distributed=False):
     dummy_batch = task.dataset('train').get_dummy_batch(args.max_tokens, max_positions)
     oom_batch = task.dataset('train').get_dummy_batch(1, max_positions)
 
+    #leme
+    #print(dummy_batch)
+    #leme
+
     # Build trainer
     trainer = Trainer(args, task, model, criterion, dummy_batch, oom_batch)
     print('| training on {} GPUs'.format(args.distributed_world_size))
@@ -107,20 +111,17 @@ def main(args, init_distributed=False):
     valid_subsets = args.valid_subset.split(',')
 
     #leme
-    writer = tb.SummaryWriter("/home/getalp/sfeirj/results/models/m16")
+    writer = tb.SummaryWriter("/home/getalp/sfeirj/results/models/m17")
     #leme
 
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
         # train for one epoch
-        #train(args, trainer, task, epoch_itr)
-        #leme
+        #leme added writer to train() parameters and logs
         train(args, trainer, task, epoch_itr, writer)
-        #stats = train(args, trainer, task, epoch_itr, writer)
-        #print(stats["loss"].avg)
-        #print("TESTOS")
-        #assert False
-        print("{} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
-        time.sleep(1)
+        print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
+        time.sleep(4)
+        print(dir(model))
+        assert False
         #leme
 
         if epoch_itr.epoch % args.validate_interval == 0:
@@ -158,6 +159,7 @@ def main(args, init_distributed=False):
     #leme
 
 
+#leme added writer parameter
 def train(args, trainer, task, epoch_itr, writer):
     """Train the model for one epoch."""
     # Update parameters every N batches
@@ -177,11 +179,37 @@ def train(args, trainer, task, epoch_itr, writer):
     extra_meters = collections.defaultdict(lambda: AverageMeter())
     first_valid = args.valid_subset.split(',')[0]
     max_update = args.max_update or math.inf
+    #leme
+    # explore batches
+    #for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
+        #if (samples[0]["net_input"]["src_lengths"][0] < 30) and (samples[0]["net_input"]["src_lengths"][0] != samples[0]["net_input"]["src_lengths"][-1]):
+        #    print(i, samples[0]["net_input"]["src_lengths"])
+        #if i == 1259:
+        #    print(samples[0]["net_input"]["src_tokens"])
+        #    print(samples[0]["net_input"]["prev_output_tokens"])
+        #print(i, samples[0]["nsentences"], samples[0]["net_input"]["src_tokens"])
+        #print(samples[0]["target"][:4])
+        #print(i)
+    #assert False
+    #leme
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
+        #leme
+        #exploring samples
+        #print(i)
+        #print(samples)
+        #assert False
+        #leme
         log_output = trainer.train_step(samples)
         if log_output is None:
             continue
-
+        #leme extract encoder_output
+        #print(args.arch)
+        #assert False
+        if args.arch == "transformer":
+            print(samples[0]["nsentences"], samples[0]["net_input"]["src_lengths"])   
+            print(trainer.model.encoder_output["encoder_out"].shape)
+        assert False
+        #leme
         # log mid-epoch stats
         stats = get_training_stats(trainer)
         for k, v in log_output.items():
@@ -193,6 +221,8 @@ def train(args, trainer, task, epoch_itr, writer):
                 extra_meters[k].update(v)
             stats[k] = extra_meters[k].avg
         progress.log(stats, tag='train', step=stats['num_updates'])
+        #leme test
+        assert False
 
         # ignore the first mini-batch in words-per-second calculation
         if i == 0:

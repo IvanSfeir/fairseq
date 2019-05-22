@@ -15,6 +15,7 @@ from .fairseq_incremental_decoder import FairseqIncrementalDecoder  # noqa: F401
 from .fairseq_model import (
     BaseFairseqModel,
     FairseqModel,  # noqa: F401
+    MyFairseqModel, #leme added that
     FairseqMultiModel,  # noqa: F401
     FairseqLanguageModel,  # noqa: F401
     FairseqEncoderModel,  # noqa: F401
