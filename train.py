@@ -43,7 +43,21 @@ def main(args, init_distributed=False):
     task = tasks.setup_task(args)
 
     # Load dataset splits
+    #leme: sentence reordering happens here!!! 
+    #IMPORTANT: the idxes are in the same order than the initial data (see local/Work/data/structured_CoNLL
+    #_2012_to_preprocess/train.label)
     load_dataset_splits(task, ['train', 'valid'])
+    #leme
+    #leme explore ordered indices
+    #print("|||||||||||||||||||||||||||")
+    #print(task.dataset('train').ordered_indices()) #[16881   669 56010 ... 65404  5487 28808]
+    #print(len(task.dataset('train').ordered_indices())) #75133
+    #print(task.dataset('train').num_tokens(72128))
+    #for ord_idx in task.dataset('train').ordered_indices()[:20]:
+    #    print(task.dataset('train').num_tokens(ord_idx))
+    #print("|||||||||||||||||||||||||||")
+    #assert False
+    #leme
 
     # Initialize distributed training (after data loading)
     if init_distributed:
@@ -71,7 +85,8 @@ def main(args, init_distributed=False):
     dummy_batch = task.dataset('train').get_dummy_batch(args.max_tokens, max_positions)
     oom_batch = task.dataset('train').get_dummy_batch(1, max_positions)
 
-    #leme
+    #leme check whether data is already distributed into sentences of ordered length
+    #it is already
     #print(dummy_batch)
     #leme
 
@@ -159,7 +174,7 @@ def main(args, init_distributed=False):
     #leme
 
 
-#leme added writer parameter
+#leme added writer parameters
 def train(args, trainer, task, epoch_itr, writer):
     """Train the model for one epoch."""
     # Update parameters every N batches
@@ -184,31 +199,40 @@ def train(args, trainer, task, epoch_itr, writer):
     #for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
         #if (samples[0]["net_input"]["src_lengths"][0] < 30) and (samples[0]["net_input"]["src_lengths"][0] != samples[0]["net_input"]["src_lengths"][-1]):
         #    print(i, samples[0]["net_input"]["src_lengths"])
-        #if i == 1259:
-        #    print(samples[0]["net_input"]["src_tokens"])
-        #    print(samples[0]["net_input"]["prev_output_tokens"])
-        #print(i, samples[0]["nsentences"], samples[0]["net_input"]["src_tokens"])
+        #if i == 6:
+        #    print(samples[0]["target"], samples[0]["id"], samples[0]["net_input"]["src_lengths"])
+            #print(samples[0]["net_input"]["src_lengths"])
+            #assert False
+        #print(i, samples[0]["nsentences"])
+        #print(i, samples[0]["id"], samples[0]["target"])
         #print(samples[0]["target"][:4])
+        #print(samples[0]["net_input"]["prev_output_tokens"][:4])
         #print(i)
+        #if samples[0]["target"][-1][-1] == 1:
+        #    print(i, samples[0]["id"], samples[0]["net_input"]["prev_output_tokens"])
+        #    assert False
     #assert False
     #leme
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
         #leme
         #exploring samples
-        #print(i)
-        #print(samples)
+        if i == 6:
+            print(samples[0]["target"], samples[0]["id"], samples[0]["net_input"]["src_lengths"])
         #assert False
         #leme
         log_output = trainer.train_step(samples)
         if log_output is None:
             continue
         #leme extract encoder_output
-        #print(args.arch)
-        #assert False
         if args.arch == "transformer":
-            print(samples[0]["nsentences"], samples[0]["net_input"]["src_lengths"])   
-            print(trainer.model.encoder_output["encoder_out"].shape)
-        assert False
+            #print(samples[0]["nsentences"], samples[0]["net_input"]["src_lengths"])   
+            #print(trainer.model.encoder_output["encoder_out"].shape)
+            #print(trainer.model.encoder_output["encoder_out"])
+            #print(torch.index_select(trainer.model.encoder_output["encoder_out"], 1, torch.tensor(3).to(torch.device("cuda"))).shape)
+            #save encoder output in the right idx
+            for j in range(samples[0]["nsentences"]):
+                trainer.encoder_output_list[samples[0]["id"][j]] = \
+                    torch.index_select(trainer.model.encoder_output["encoder_out"], 1, torch.tensor(j).to(torch.device("cuda")))
         #leme
         # log mid-epoch stats
         stats = get_training_stats(trainer)
@@ -221,8 +245,6 @@ def train(args, trainer, task, epoch_itr, writer):
                 extra_meters[k].update(v)
             stats[k] = extra_meters[k].avg
         progress.log(stats, tag='train', step=stats['num_updates'])
-        #leme test
-        assert False
 
         # ignore the first mini-batch in words-per-second calculation
         if i == 0:
@@ -235,6 +257,14 @@ def train(args, trainer, task, epoch_itr, writer):
 
         if num_updates >= max_update:
             break
+
+    #leme explore representations of padding words
+    #print(trainer.encoder_output_list[17227][-1].shape)
+    #print(trainer.encoder_output_list[64359][-1].shape)
+    #print(trainer.encoder_output_list[17227][-1])
+    #print(trainer.encoder_output_list[64359][-1])
+    #assert False
+    #leme
 
     # log end-of-epoch stats
     stats = get_training_stats(trainer)
