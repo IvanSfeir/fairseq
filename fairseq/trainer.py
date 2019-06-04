@@ -55,6 +55,10 @@ class Trainer(object):
 
         self.init_meters(args)
 
+        #leme
+        self.encoder_output_list = [torch.tensor([])] * len(self.task.dataset('train').ordered_indices())
+        #leme
+
     def init_meters(self, args):
         self.meters = OrderedDict()
         self.meters['train_loss'] = AverageMeter()
