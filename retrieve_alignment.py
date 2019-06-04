@@ -113,7 +113,7 @@ def main(args):
     args.replace_unk = True
     ####2 LOAD DATASET IN THE RIGHT FORMAT
     task = tasks.setup_task(args)
-    #print(args.gen_subset)
+    print(args.gen_subset)
     #sys.exit(1)
     task.load_dataset(args.gen_subset)
     print('| {} {} {} examples'.format(args.data, args.gen_subset, len(task.dataset(args.gen_subset))))
@@ -150,7 +150,10 @@ def main(args):
 
     ####5 INIT GENERATOR
     gen_timer = StopwatchMeter()
-    translator = SequenceScorer(models, task.target_dictionary)
+    print(type(task.target_dictionary))
+    task.target_dictionary.pad()
+    print("PADDED")
+    translator = SequenceScorer(task.target_dictionary)
 
     ####6 SCORING
     check_root(args.root_directory)
@@ -169,8 +172,9 @@ def main(args):
 
             s_id = sample_id.item()
             #print(src_str, src_gold[s_id])
-            assert_unk(src_str, src_gold[s_id] if args.gold_source else None, "source")
-            assert_unk(target_str, trg_gold[s_id] if args.gold_target else None, "target")
+            #leme commented following 2 lines
+            #assert_unk(src_str, src_gold[s_id] if args.gold_source else None, "source")
+            #assert_unk(target_str, trg_gold[s_id] if args.gold_target else None, "target")
          
             write_attention_textfiles(s_id, src_str, target_str, acc_attentions, args.root_directory)
             wps_meter.update(src_tokens.size(0))
