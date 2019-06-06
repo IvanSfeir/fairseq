@@ -35,10 +35,6 @@ def main(args, init_distributed=False):
     if args.max_tokens is None:
         args.max_tokens = 6000
     print(args)
-    #leme
-    print(cotrain_utils.load_firsts(args, "train"))
-    assert False
-    #leme
 
     if torch.cuda.is_available() and not args.cpu:
         torch.cuda.set_device(args.device_id)
@@ -49,6 +45,11 @@ def main(args, init_distributed=False):
 
     # Load dataset splits
     load_dataset_splits(task, ['train', 'valid'])
+
+    #leme
+    # Load indices of documents' first sentences
+    train_firsts = cotrain_utils.load_firsts(args, "train")
+    #leme
 
     # Initialize distributed training (after data loading)
     if init_distributed:
@@ -116,13 +117,12 @@ def main(args, init_distributed=False):
     #leme
 
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
-        # train for one epoch
-        #leme added writer to train() parameters and logs
-        train(args, trainer, task, epoch_itr, writer)
-        print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
-        time.sleep(4)
-        print(dir(model))
-        assert False
+        #leme train first model for one epoch
+        #------------------------------------
+        train_trf1(args, trainer, task, epoch_itr, writer)
+        print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, \
+            trainer.get_num_updates(), max_update))
+        #assert False
         #leme
 
         if epoch_itr.epoch % args.validate_interval == 0:
@@ -139,15 +139,31 @@ def main(args, init_distributed=False):
         if epoch_itr.epoch % args.save_interval == 0:
             save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
 
+        #leme change data granularity
+        #----------------------------
+        data_size = task.dataset('train').tgt.size
+        span_representations = cotrain_utils.labels_to_span_representations(trainer, task, args, use_gold=True, use_attention=False)
+
+        # BEGIN TEST
+        #sentences = [["O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "O", "O", "O"],
+        #["B-N", "O", "O", "O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "B-N", "I-N", "I-N", "O"],
+        #["B-N", "I-N", "I-N", "O", "O", "B-P", "O"]]
+
+        #for i in range(3):
+        #    print("SENTENCE", i)
+        #    cotrain_utils.labels_to_span_representations(i, sentences[i], trainer, args)
+        #assert False
+        # END TEST
+
+
+
+
+        #leme train second model for one epoch
+        #-------------------------------------
+        
+
     train_meter.stop()
     print('| done training in {:.1f} seconds'.format(train_meter.sum))
-
-    #leme
-    #filepath = "/home/getalp/sfeirj/results/waves/results_wave_1"
-    #with open(filepath, "a") as f:
-    #    f.write("{},".format(epoch_itr.epoch))
-    #    print("")
-    #leme
 
     #leme
     writer.close()
@@ -156,8 +172,8 @@ def main(args, init_distributed=False):
 
 
 #leme added writer parameters
-def train(args, trainer, task, epoch_itr, writer):
-    """Train the model for one epoch."""
+def train_trf1(args, trainer, task, epoch_itr, writer):
+    """Train the first transformer model for one epoch."""
     # Update parameters every N batches
     update_freq = args.update_freq[epoch_itr.epoch - 1] \
             if epoch_itr.epoch <= len(args.update_freq) else args.update_freq[-1]
@@ -175,45 +191,17 @@ def train(args, trainer, task, epoch_itr, writer):
     extra_meters = collections.defaultdict(lambda: AverageMeter())
     first_valid = args.valid_subset.split(',')[0]
     max_update = args.max_update or math.inf
-    #leme
-    # explore batches
-    #for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
-        #if (samples[0]["net_input"]["src_lengths"][0] < 30) and (samples[0]["net_input"]["src_lengths"][0] != samples[0]["net_input"]["src_lengths"][-1]):
-        #    print(i, samples[0]["net_input"]["src_lengths"])
-        #if i == 6:
-        #    print(samples[0]["target"], samples[0]["id"], samples[0]["net_input"]["src_lengths"])
-            #print(samples[0]["net_input"]["src_lengths"])
-            #assert False
-        #print(i, samples[0]["nsentences"])
-        #print(i, samples[0]["id"], samples[0]["target"])
-        #print(samples[0]["target"][:4])
-        #print(samples[0]["net_input"]["prev_output_tokens"][:4])
-        #print(i)
-        #if samples[0]["target"][-1][-1] == 1:
-        #    print(i, samples[0]["id"], samples[0]["net_input"]["prev_output_tokens"])
-        #    assert False
-    #assert False
-    #leme
+
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
-        #leme
-        #exploring samples
-        if i == 6:
-            print(samples[0]["target"], samples[0]["id"], samples[0]["net_input"]["src_lengths"])
-        #assert False
-        #leme
         log_output = trainer.train_step(samples)
         if log_output is None:
             continue
         #leme extract encoder_output
         if args.arch == "transformer":
-            #print(samples[0]["nsentences"], samples[0]["net_input"]["src_lengths"])   
-            #print(trainer.model.encoder_output["encoder_out"].shape)
-            #print(trainer.model.encoder_output["encoder_out"])
-            #print(torch.index_select(trainer.model.encoder_output["encoder_out"], 1, torch.tensor(3).to(torch.device("cuda"))).shape)
             #save encoder output in the right idx
             for j in range(samples[0]["nsentences"]):
-                trainer.encoder_output_list[samples[0]["id"][j]] = \
-                    torch.index_select(trainer.model.encoder_output["encoder_out"], 1, torch.tensor(j).to(torch.device("cuda")))
+                trainer.encoder_output_list[samples[0]["id"][j]] = trainer.model.encoder_output["encoder_out"][:, j, :]
+
         #leme
         # log mid-epoch stats
         stats = get_training_stats(trainer)
@@ -238,14 +226,6 @@ def train(args, trainer, task, epoch_itr, writer):
 
         if num_updates >= max_update:
             break
-
-    #leme explore representations of padding words
-    #print(trainer.encoder_output_list[17227][-1].shape)
-    #print(trainer.encoder_output_list[64359][-1].shape)
-    #print(trainer.encoder_output_list[17227][-1])
-    #print(trainer.encoder_output_list[64359][-1])
-    #assert False
-    #leme
 
     # log end-of-epoch stats
     stats = get_training_stats(trainer)

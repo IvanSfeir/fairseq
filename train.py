@@ -56,7 +56,11 @@ def main(args, init_distributed=False):
     #for ord_idx in task.dataset('train').ordered_indices()[:20]:
     #    print(task.dataset('train').num_tokens(ord_idx))
     #print("|||||||||||||||||||||||||||")
-    #assert False
+    print(dir(task.dataset('train').tgt))
+    print(task.dataset('train'))
+    print(dir(task.dataset('train').src_dict))
+    print(task.dataset('train').tgt.read_data("maxmentions-bin/train.input-label.label"))
+    assert False
     #leme
 
     # Initialize distributed training (after data loading)
@@ -231,8 +235,7 @@ def train(args, trainer, task, epoch_itr, writer):
             #print(torch.index_select(trainer.model.encoder_output["encoder_out"], 1, torch.tensor(3).to(torch.device("cuda"))).shape)
             #save encoder output in the right idx
             for j in range(samples[0]["nsentences"]):
-                trainer.encoder_output_list[samples[0]["id"][j]] = \
-                    torch.index_select(trainer.model.encoder_output["encoder_out"], 1, torch.tensor(j).to(torch.device("cuda")))
+                trainer.encoder_output_list[samples[0]["id"][j]] = trainer.model.encoder_output["encoder_out"][:, j, :]
         #leme
         # log mid-epoch stats
         stats = get_training_stats(trainer)
