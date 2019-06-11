@@ -1,3 +1,10 @@
+#!/usr/bin/env python3 -u
+# Copyright (c) 2019-present, Ivan Sfeir.
+# All rights reserved.
+"""
+Library for co-training the double model architecture for coreference resolution.
+Code written during my internship at GETALP team, LIG, Grenoble, from Feb to Jul 2019.
+"""
 
 from tqdm import tqdm
 import pandas as pd

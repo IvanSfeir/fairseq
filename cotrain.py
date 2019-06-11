@@ -1,12 +1,9 @@
 #!/usr/bin/env python3 -u
-# Copyright (c) 2017-present, Facebook, Inc.
+# Copyright (c) 2019-present, Ivan Sfeir.
 # All rights reserved.
-#
-# This source code is licensed under the license found in the LICENSE file in
-# the root directory of this source tree. An additional grant of patent rights
-# can be found in the PATENTS file in the same directory.
 """
-Train a new model on one or across multiple GPUs.
+Co-train the double model architecture for coreference resolution on one or across multiple GPUs.
+Code written during my internship at GETALP team, LIG, Grenoble, from Feb to Jul 2019.
 """
 
 import collections
