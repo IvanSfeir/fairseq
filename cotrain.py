@@ -141,22 +141,10 @@ def main(args, init_distributed=False):
 
         #leme change data granularity
         #----------------------------
-        data_size = task.dataset('train').tgt.size
-        span_representations = cotrain_utils.labels_to_span_representations(trainer, task, args, use_gold=True, use_attention=False)
-
-        # BEGIN TEST
-        #sentences = [["O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "O", "O", "O"],
-        #["B-N", "O", "O", "O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "B-N", "I-N", "I-N", "O"],
-        #["B-N", "I-N", "I-N", "O", "O", "B-P", "O"]]
-
-        #for i in range(3):
-        #    print("SENTENCE", i)
-        #    cotrain_utils.labels_to_span_representations(i, sentences[i], trainer, args)
-        #assert False
-        # END TEST
-
-
-
+        span_representations = change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
+        #print([len(s) for s in span_representations[:6]]) #nb of spans per sentence
+        #print(span_representations[:6]) #actual numerical tensor representations
+        assert False
 
         #leme train second model for one epoch
         #-------------------------------------
@@ -244,6 +232,49 @@ def train_trf1(args, trainer, task, epoch_itr, writer):
         meter = trainer.get_meter(k)
         if meter is not None:
             meter.reset()
+
+
+def change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attention=False):
+    """Go from word gran to span gran after each epoch."""
+    # returns a list containing in each index j the representations of all the mentions contained in the jth sentence
+    data_size = task.dataset('train').tgt.size
+    sentences = [[]] * data_size
+
+    if use_gold:
+
+        # Update parameters every N batches
+        update_freq = args.update_freq[epoch_itr.epoch - 1] \
+                if epoch_itr.epoch <= len(args.update_freq) else args.update_freq[-1]
+
+        # Initialize data iterator
+        itr = epoch_itr.next_epoch_itr(
+            fix_batches_to_gpus=args.fix_batches_to_gpus,
+            shuffle=(epoch_itr.epoch >= args.curriculum),
+        )
+        itr = iterators.GroupedIterator(itr, update_freq)
+        progress = progress_bar.build_progress_bar(
+            args, itr, epoch_itr.epoch, no_progress_bar='simple',
+        )
+
+        for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
+            # for every batch
+            for j in range(samples[0]["nsentences"]):
+                # for every sentence
+                sentences[samples[0]["id"][j]] = samples[0]["target"][j, :]
+
+    else:
+        #TODO sentences = predictions
+        #DON'T FORGET TO ADJUST PREDICTIONS LENGTHS
+        assert False
+
+    span_representations = [[]] * data_size
+    for i in range(data_size):
+        if use_attention == False:
+            span_representations[i] = cotrain_utils.labels_to_simple_span_representations(i, sentences[i], trainer, args)
+        else:
+            span_representations[i] = cotrain_utils.labels_to_attention_span_representations(i, sentences[i], trainer, args)
+
+    return span_representations
 
 
 def get_training_stats(trainer):

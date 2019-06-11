@@ -13,35 +13,51 @@ def load_firsts(args, set='train'):
 	return firsts_list
 
 def labels_to_simple_span_representations(i, sentence, trainer, args):
-	"""Returns the list of span representations of each span in one BIO sentence with id i"""
+	"""Returns the list of span objects of each span in one BIO sentence with id i"""
+	# Span object is a dictionary containing 
+		# first: first index in the sentence
+		# length: span length
+		# representation: 1d tensor containing the span's representation
 	# Uses simple representation by averaging
 	# It is interesting to use either golden data or predictions
+
+	def find_all_sub(beg_idx, end_idx):
+		for sub_beg_idx in range(beg_idx, end_idx):
+			for sub_end_idx in range(sub_beg_idx+1, end_idx+1):
+				yield sub_beg_idx, sub_end_idx
+
 	beg_idx = 0
 	end_idx = 0
 	idx = 0 # The index which goes through the sentence
 	span_representations = []
 
 	while idx < len(sentence):
-		if (sentence[idx][0] == 'B'): # 6/7
+		if (sentence[idx] in [6, 7]): # 'B-N or B-P'
 			beg_idx = idx
 			idx += 1
-			while (idx < len(sentence)) and (sentence[idx][0] == 'I'): # 5/8
+			while (idx < len(sentence)) and (sentence[idx] in [5, 8]): # 'I-N or I-P'
 				idx += 1
 			end_idx = idx
-			raw_left_representation = trainer.encoder_output_list[i][:beg_idx, :]
-			raw_span_representation = trainer.encoder_output_list[i][beg_idx:end_idx, :]
-			raw_right_representation = trainer.encoder_output_list[i][end_idx:, :]
-			# Create span representation from raw span representation:
-			# First word, last word, average, average left, average right
-			span_representation = torch.cat((
-				raw_span_representation[0],
-				raw_span_representation[-1],
-				torch.mean(raw_span_representation, 0),
-				torch.mean(raw_left_representation, 0),
-				torch.mean(raw_right_representation, 0),
-				), 0)
-			print("Size of span rep: {}".format(span_representation.size()))
-			span_representations.append(torch.squeeze(span_representation))
+			# Compute all spans inside the detected span
+			for sub_beg_idx, sub_end_idx in find_all_sub(beg_idx, end_idx):
+				raw_left_representation = trainer.encoder_output_list[i][:sub_beg_idx, :]
+				raw_span_representation = trainer.encoder_output_list[i][sub_beg_idx:sub_end_idx, :]
+				raw_right_representation = trainer.encoder_output_list[i][sub_end_idx:, :]
+				# Create span representation from raw span representation:
+				# First word, last word, average, average left, average right
+				span_representation = torch.cat((
+					raw_span_representation[0],
+					raw_span_representation[-1],
+					torch.mean(raw_span_representation, 0),
+					torch.mean(raw_left_representation, 0) if raw_left_representation.size()[0] != 0 \
+						else torch.zeros(args.encoder_embed_dim).to(torch.device("cuda")),
+					torch.mean(raw_right_representation, 0) if raw_right_representation.size()[0] != 0 \
+						else torch.zeros(args.encoder_embed_dim).to(torch.device("cuda")),
+					), 0)
+				span_representations.append({
+					"first": sub_beg_idx,
+					"length": sub_end_idx - sub_beg_idx,
+					"representation": torch.squeeze(span_representation)})
 		idx += 1
 
 	return span_representations
@@ -50,28 +66,37 @@ def labels_to_attention_span_representations(i, sentence, trainer, args):
 	#TODO
 	return
 
-def labels_to_span_representations(trainer, task, args, use_gold=True, use_attention=False):
-	# returns a list containing in each index j the representations of all the mentions contained in the jth sentence
-	sentences = []
-	data_size = task.dataset('train').tgt.size
+# OUTDATED AND REPLACED WITH COTRAIN.PY/CHANGE_GRANULARITY()
 
-	if use_gold:
-	    with open("/home/getalp/sfeirj/data/CoNLL/train.label", "r") as f:
-	        for line in f.readlines():
-	            gold_labels.append(line[:-1].split(" "))
-	    assert len(gold_labels) == data_size
-	else:
-		#TODO sentences = predictions
-		assert False
+#def labels_to_span_representations(trainer, task, args, use_gold=True, use_attention=False):
+#	# returns a list containing in each index j the representations of all the mentions contained in the jth sentence
+#	sentences = []
+#	data_size = task.dataset('train').tgt.size
+#	if use_gold:
+#	    with open("/home/getalp/sfeirj/data/CoNLL/train.label", "r") as f:
+#	        for line in f.readlines():
+#	            gold_labels.append(line[:-1].split(" "))
+#	    assert len(gold_labels) == data_size
+#	else:
+#		#TODO sentences = predictions
+#		assert False
+#	span_representations = [] * data_size
+#	for i in range(data_size):
+#		if use_attention == False:
+#			span_representations[i] = labels_to_simple_span_representations(i, sentences[i], trainer, args)
+#		else:
+#			span_representations[i] = labels_to_attention_span_representations(i, sentences[i], trainer, args)
+#	return span_representations
+# BEGIN TEST
+#sentences = [["O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "O", "O", "O"],
+#["B-N", "O", "O", "O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "B-N", "I-N", "I-N", "O"],
+#["B-N", "I-N", "I-N", "O", "O", "B-P", "O"]]
+#for i in range(3):
+#    print("SENTENCE", i)
+#    cotrain_utils.labels_to_span_representations(i, sentences[i], trainer, args)
+#assert False
+# END TEST
 
-    span_representations = [] * data_size
-    for i in range(data_size):
-    	if use_attention == False:
-			span_representations[i] = labels_to_simple_span_representations(i, sentences[i], trainer, args)
-		else:
-			span_representations[i] = labels_to_attention_span_representations(i, sentences[i], trainer, args)
-
-	return span_representations
 
 def get_document_representation(i, args):
     """Return ith document"""
