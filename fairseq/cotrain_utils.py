@@ -8,9 +8,12 @@ Code written during my internship at GETALP team, LIG, Grenoble, from Feb to Jul
 
 from tqdm import tqdm
 import pandas as pd
+import itertools
 import torch
 
-
+"""
+GENERAL UTILS
+"""
 
 def load_firsts(args, set='train'):
 	firsts_list = []
@@ -18,6 +21,10 @@ def load_firsts(args, set='train'):
 		for first in f.readlines():
 			firsts_list.append(int(first[:-1]))
 	return firsts_list
+
+"""
+LABELS TO SPAN REPRESENTATIONS
+"""
 
 def labels_to_simple_span_representations(i, sentence, trainer, args):
 	"""Returns the list of span objects of each span in one BIO sentence with id i"""
@@ -61,10 +68,10 @@ def labels_to_simple_span_representations(i, sentence, trainer, args):
 					torch.mean(raw_right_representation, 0) if raw_right_representation.size()[0] != 0 \
 						else torch.zeros(args.encoder_embed_dim).to(torch.device("cuda")),
 					), 0)
-				span_representations.append({
-					"first": sub_beg_idx,
-					"length": sub_end_idx - sub_beg_idx,
-					"representation": torch.squeeze(span_representation)})
+				# Create Span object
+				s = Span(i, sub_beg_idx, sub_end_idx-sub_beg_idx)
+				s.update_representation(torch.squeeze(span_representation))
+				span_representations.append(s)
 		idx += 1
 
 	return span_representations
@@ -73,42 +80,9 @@ def labels_to_attention_span_representations(i, sentence, trainer, args):
 	#TODO
 	return
 
-# OUTDATED AND REPLACED WITH COTRAIN.PY/CHANGE_GRANULARITY()
-
-#def labels_to_span_representations(trainer, task, args, use_gold=True, use_attention=False):
-#	# returns a list containing in each index j the representations of all the mentions contained in the jth sentence
-#	sentences = []
-#	data_size = task.dataset('train').tgt.size
-#	if use_gold:
-#	    with open("/home/getalp/sfeirj/data/CoNLL/train.label", "r") as f:
-#	        for line in f.readlines():
-#	            gold_labels.append(line[:-1].split(" "))
-#	    assert len(gold_labels) == data_size
-#	else:
-#		#TODO sentences = predictions
-#		assert False
-#	span_representations = [] * data_size
-#	for i in range(data_size):
-#		if use_attention == False:
-#			span_representations[i] = labels_to_simple_span_representations(i, sentences[i], trainer, args)
-#		else:
-#			span_representations[i] = labels_to_attention_span_representations(i, sentences[i], trainer, args)
-#	return span_representations
-# BEGIN TEST
-#sentences = [["O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "O", "O", "O"],
-#["B-N", "O", "O", "O", "O", "O", "O", "B-N", "O", "O", "O", "O", "O", "B-N", "I-N", "I-N", "O"],
-#["B-N", "I-N", "I-N", "O", "O", "B-P", "O"]]
-#for i in range(3):
-#    print("SENTENCE", i)
-#    cotrain_utils.labels_to_span_representations(i, sentences[i], trainer, args)
-#assert False
-# END TEST
-
-
-def get_document_representation(i, args):
-    """Return ith document"""
-    for sentence in sentences:
-    	return labels_to_span_representations(i, sentence, args)
+"""
+USING TRF1 PREDICTIONS
+"""
 
 def adjust_predictions():
 	# Saves predictions in a CoNLL-friendly format in parent path
@@ -176,3 +150,6 @@ def get_length_differences():
 		len(predictions)))
 	return df_diff
 
+"""
+USING TRF2 CLUSTERING
+"""

@@ -24,6 +24,7 @@ from fairseq.utils import import_user_module
 from fairseq import cotrain_utils
 import tensorboardX as tb
 import time
+#no need to import clustering.py because it is one of the tasks
 #leme
 
 def main(args, init_distributed=False):
@@ -145,6 +146,8 @@ def main(args, init_distributed=False):
 
         #leme train second model for one epoch
         #-------------------------------------
+        data_size = task.dataset('train').tgt.size
+        second_task = ClusteringTask(args, "train", train_firsts, data_size)
         
 
     train_meter.stop()
