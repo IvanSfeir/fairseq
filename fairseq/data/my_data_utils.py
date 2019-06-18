@@ -8,6 +8,8 @@ Code written during my internship at GETALP team, LIG, Grenoble, from Feb to Jul
 
 import pandas as pd
 from collections import defaultdict, Counter
+import itertools
+import re
 
 
 sets = ["dev", "test", "train"] #my datasets labels
@@ -33,12 +35,21 @@ class Span():
         self.length = length
         self.string = string
 
-    def update_representation(r):
+    def update_representation(self, r):
         self.representation = r
 
-    def reinitialize():
+    def add_antecedent(self, s):
+        self.antecedent = s.id
+
+    def no_antecedent(self):
+        self.antecedent = None
+
+    def reinitialize(self):
         Span.id_generator = itertools.count()
 
+
+def read_conll_format_csv(data_source, split):
+    return pd.read_csv("/data1/home/getalp/sfeirj/data/{}/csv/{}.csv".format(data_source, split))
 
 
 def save_firsts(data_source="CoNLL", bin="maxmentions-bin"):
@@ -48,7 +59,7 @@ def save_firsts(data_source="CoNLL", bin="maxmentions-bin"):
 
     for i in range(3): #split index
         
-        split_dataframe = pd.read_csv("/data1/home/getalp/sfeirj/data/{}/csv/{}.csv".format(data_source, sets[i]))
+        split_dataframe = read_conll_format_csv(data_source, sets[i])
         df_size = split_dataframe.shape[0]
         sentence_ctr = 0
         k = 0
@@ -72,16 +83,17 @@ def save_firsts(data_source="CoNLL", bin="maxmentions-bin"):
             k += 1
 
     for i in range(3):
-    with open("/data1/home/getalp/sfeirj/sfeirseq/{}/{}.firsts.txt".format(bin, splits[i]), "w") as f:
-        for first in firsts_list[i]:
-            f.write("{}\n".format(first))
+        with open("/data1/home/getalp/sfeirj/sfeirseq/{}/{}.firsts.txt".format(bin, splits[i]), "w") as f:
+            for first in firsts_list[i]:
+                f.write("{}\n".format(first))
 
 
-def compute_gold_clusters(l,  l_docs, l_parts, l_wordids, l_strings, data_source="CoNLL"):
+def compute_gold_clusters_from_lists(l,  l_docs, l_parts, l_wordids, l_strings, data_source="CoNLL"):
     #function which translates last column annotation for coreference resolution to dictionary of coreferent mentions
-    #INPUT: list of annotations along with their corresponding docs, parts, word id features and strings
+    #INPUT: list of CoNLL format annotations along with their corresponding docs, parts, word id features and strings
     #OUTPUT: datacorefids_dict: hierarchical dictionary containing for each entity its coreferent mentions
     #OUTPUT: datacorefstrings_dict: hierarchical dictionary containing for each entity its coreferent mentions
+    #note that this function computes previous coreferent spans as gold antecedents
     
     gold_clusters = []
     i = 0
@@ -115,14 +127,19 @@ def compute_gold_clusters(l,  l_docs, l_parts, l_wordids, l_strings, data_source
                         is_in_mention = False
                 span_string = " ".join(l_strings[i:j])
                 s = Span(sentence_id, i, j - i, span_string)
-                document_clusters[entity_id].append(s)
+                document_clusters[int(entity_id)].append(s)
+                #add previous attribute to current span's antecedent attribute
+                if len(document_clusters[int(entity_id)]) == 1:
+                    s.no_antecedent()
+                else:
+                    s.add_antecedent(document_clusters[int(entity_id)][-2])
         
         #check if end of document
         if i < len(l) - 1:
             #if new document or new part
             if (l_docs[i] != l_docs[i + 1]) or (l_parts[i] != l_parts[i + 1]):
                 gold_clusters.append(document_clusters)
-                document_clusters = {}
+                document_clusters = defaultdict(list)
         else:
             gold_clusters.append(document_clusters)
 
@@ -135,7 +152,10 @@ def compute_gold_clusters(l,  l_docs, l_parts, l_wordids, l_strings, data_source
     return gold_clusters
 
 
-def compute_gold_antecedents(data_source="CoNLL"):
+def compute_gold_clusters(split="train", data_source="CoNLL"):
+    df = read_conll_format_csv(data_source, split)
+    print(df.head())
+    gold_clusters = compute_gold_clusters_from_lists(list(df["col11"]), list(df["col0"]), list(df["col1"]), \
+        list(df["col2"]), list(df["col3"]), data_source)
+    return gold_clusters
 
-
-    return 

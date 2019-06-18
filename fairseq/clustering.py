@@ -23,21 +23,29 @@ from fairseq.data import (
 from . import FairseqTask, register_task
 
 
+
+class PredictedCluster():
+    """
+    Class defining clusters predicted in the second task of the co-training process
+    """
+
+
+
 @register_task('clustering')
 class ClusteringTask(FairseqTask):
     """
     Encode spans and constitute coreferent clusters.
     """
 
-    self.clusters = []
+    self.predicted_clusters = []
 
     def __init__(self, args, set, firsts, data_size):
         itr = self.prepare_batches_indices(args, set, firsts, data_size)
         for batch in itr:
 
 
-    def get_clusters(self):
-        return self.clusters
+    def get_predicted_clusters(self):
+        return self.predicted_clusters
 
     #RELATED TO BATCHES AND DATA LOADING
 
@@ -66,3 +74,5 @@ class ClusteringTask(FairseqTask):
 
     def load_dataset(self, split, combine=False, **kwargs):
         return
+
+

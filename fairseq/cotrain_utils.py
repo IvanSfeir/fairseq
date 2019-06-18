@@ -28,7 +28,7 @@ LABELS TO SPAN REPRESENTATIONS
 
 def labels_to_simple_span_representations(i, sentence, trainer, args):
 	"""Returns the list of span objects of each span in one BIO sentence with id i"""
-	# Span object is a dictionary containing 
+	# Span object is defined in my_data_utils.py and contains, ebtre autres
 		# first: first index in the sentence
 		# length: span length
 		# representation: 1d tensor containing the span's representation
