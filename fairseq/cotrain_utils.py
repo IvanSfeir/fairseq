@@ -15,9 +15,9 @@ import torch
 GENERAL UTILS
 """
 
-def load_firsts(args, set='train'):
+def load_firsts(args, split='train'):
 	firsts_list = []
-	with open("{}/{}.firsts.txt".format(args.data[0], set), "r") as f:
+	with open("{}/{}.firsts.txt".format(args.data[0], split), "r") as f:
 		for first in f.readlines():
 			firsts_list.append(int(first[:-1]))
 	return firsts_list

@@ -38,7 +38,12 @@ def collate_tokens(values, pad_idx, eos_idx, left_pad, move_eos_to_beginning=Fal
         copy_tensor(v, res[i][size - len(v):] if left_pad else res[i][:len(v)])
     return res
 
-
+def load_firsts(args, set='train'):
+    firsts_list = []
+    with open("{}/{}.firsts.txt".format(args.data[0], set), "r") as f:
+        for first in f.readlines():
+            firsts_list.append(int(first[:-1]))
+    return firsts_list
 @contextlib.contextmanager
 def numpy_seed(seed):
     """Context manager which seeds the NumPy PRNG with the specified seed and
@@ -172,6 +177,25 @@ def batch_by_size(
 
     if len(batch) > 0:
         yield batch
+
+
+#leme
+def batch_by_doc(size, firsts):
+
+    batch = []
+    i = 1
+    j = 0
+    while i < len(firsts):
+        if j < firsts[i]:
+            batch.append(j)
+        else:
+            yield batch
+            i += 1
+            batch = [j]
+        j += 1
+    last_batch = list(range(firsts[i - 1], size))
+    yield last_batch
+#leme
 
 
 def process_bpe_symbol(sentence: str, bpe_symbol: str):

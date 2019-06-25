@@ -69,8 +69,10 @@ def main(args):
     align_dict = utils.load_align_dict(args.replace_unk)
 
     # Load dataset (possibly sharded)
+    #leme add split argument
     itr = task.get_batch_iterator(
         dataset=task.dataset(args.gen_subset),
+        split=args.gen_subset,
         max_tokens=args.max_tokens,
         max_sentences=args.max_sentences,
         max_positions=utils.resolve_max_positions(
@@ -201,8 +203,8 @@ def main(args):
                             scorer.add(target_tokens, hypo_tokens)
 
                     #leme
-                    with open("{}data/{}_predictions".format(parent_path, args.gen_subset), 'a') as f:
-                        f.write("{}\t{}\t{}\n".format(src_str, target_str, hypo_str))
+                    #with open("{}data/{}_predictions".format(parent_path, args.gen_subset), 'a') as f:
+                    #    f.write("{}\t{}\t{}\n".format(src_str, target_str, hypo_str))
                     #leme
 
             wps_meter.update(num_generated_tokens)

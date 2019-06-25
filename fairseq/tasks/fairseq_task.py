@@ -7,7 +7,8 @@
 
 import torch
 
-from fairseq import tokenizer
+#leme added cotrain_utils
+from fairseq import tokenizer, cotrain_utils
 from fairseq.data import data_utils, FairseqDataset, iterators, Dictionary
 
 
@@ -89,8 +90,9 @@ class FairseqTask(object):
             raise TypeError('Datasets are expected to be of type FairseqDataset')
         return self.datasets[split]
 
+    #leme add split to parameters
     def get_batch_iterator(
-        self, dataset, max_tokens=None, max_sentences=None, max_positions=None,
+        self, dataset, split, max_tokens=None, max_sentences=None, max_positions=None,
         ignore_invalid_inputs=False, required_batch_size_multiple=1,
         seed=1, num_shards=1, shard_id=0, num_workers=0,
     ):
@@ -125,6 +127,9 @@ class FairseqTask(object):
         """
         assert isinstance(dataset, FairseqDataset)
 
+        #leme change the way batches are built: comment what was there and build batches by docs
+        
+        """
         # get indices ordered by example size
         with data_utils.numpy_seed(seed):
             indices = dataset.ordered_indices()
@@ -139,6 +144,13 @@ class FairseqTask(object):
             indices, dataset.num_tokens, max_tokens=max_tokens, max_sentences=max_sentences,
             required_batch_size_multiple=required_batch_size_multiple,
         )
+        """
+
+        firsts_list = cotrain_utils.load_firsts(self.args, split)
+
+        batch_sampler = data_utils.batch_by_doc(len(dataset.src_sizes), firsts_list)
+
+        #leme end of changes
 
         # return a reusable, sharded iterator
         return iterators.EpochBatchIterator(

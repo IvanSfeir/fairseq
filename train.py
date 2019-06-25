@@ -56,11 +56,11 @@ def main(args, init_distributed=False):
     #for ord_idx in task.dataset('train').ordered_indices()[:20]:
     #    print(task.dataset('train').num_tokens(ord_idx))
     #print("|||||||||||||||||||||||||||")
-    print(dir(task.dataset('train').tgt))
-    print(task.dataset('train'))
-    print(dir(task.dataset('train').src_dict))
-    print(task.dataset('train').tgt.read_data("maxmentions-bin/train.input-label.label"))
-    assert False
+    #print(dir(task.dataset('train').tgt))
+    #print(task.dataset('train'))
+    #print(dir(task.dataset('train').src_dict))
+    #print(task.dataset('train').tgt.read_data("maxmentions-bin/train.input-label.label"))
+    #assert False
     #leme
 
     # Initialize distributed training (after data loading)
@@ -105,6 +105,7 @@ def main(args, init_distributed=False):
     # Initialize dataloader
     epoch_itr = task.get_batch_iterator(
         dataset=task.dataset(args.train_subset),
+        split="train",
         max_tokens=args.max_tokens,
         max_sentences=args.max_sentences,
         max_positions=max_positions,
@@ -139,8 +140,8 @@ def main(args, init_distributed=False):
         train(args, trainer, task, epoch_itr, writer)
         print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
         time.sleep(4)
-        print(dir(model))
-        assert False
+        #print(dir(model))
+        #assert False
         #leme
 
         if epoch_itr.epoch % args.validate_interval == 0:
@@ -154,7 +155,7 @@ def main(args, init_distributed=False):
         lr = trainer.lr_step(epoch_itr.epoch, valid_losses[0])
 
         #leme
-        print("{} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
+        print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
         time.sleep(1)
         #leme
 
@@ -174,7 +175,6 @@ def main(args, init_distributed=False):
 
     #leme
     writer.close()
-    print("{} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, trainer.get_num_updates(), max_update))
     #leme
 
 
@@ -216,13 +216,18 @@ def train(args, trainer, task, epoch_itr, writer):
         #    print(i, samples[0]["id"], samples[0]["net_input"]["prev_output_tokens"])
         #    assert False
     #assert False
+    #for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
+        #print(samples[0]["id"])
+    #assert False
     #leme
+
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
         #leme
         #exploring samples
-        if i == 6:
-            print(samples[0]["target"], samples[0]["id"], samples[0]["net_input"]["src_lengths"])
+        #if i == 6:
+        #    print(samples[0]["target"], samples[0]["id"], samples[0]["net_input"]["src_lengths"])
         #assert False
+        print(i, samples[0]["nsentences"])
         #leme
         log_output = trainer.train_step(samples)
         if log_output is None:
@@ -318,8 +323,10 @@ def validate(args, trainer, task, epoch_itr, subsets):
     valid_losses = []
     for subset in subsets:
         # Initialize data iterator
+        #leme add split argument
         itr = task.get_batch_iterator(
             dataset=task.dataset(subset),
+            split="valid",
             max_tokens=args.max_tokens,
             max_sentences=args.max_sentences_valid,
             max_positions=utils.resolve_max_positions(

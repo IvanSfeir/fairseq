@@ -18,9 +18,10 @@ from fairseq.data import (
     IndexedDataset,
     IndexedRawTextDataset,
     LanguagePairDataset,
+    my_data_utils,
 )
 
-from . import FairseqTask, register_task
+from fairseq.tasks import FairseqTask, register_task
 
 
 
@@ -28,6 +29,18 @@ class PredictedCluster():
     """
     Class defining clusters predicted in the second task of the co-training process
     """
+    #For now, representation is computed the easy way: by averaging the spans in the cluster
+
+    def __init__(self, s):
+        assert type(s) == Span
+        self.spans = [s]
+        self.representation = s.representation
+
+    def add_span(self, s):
+        assert type(s) == Span
+        self.representation = ((self.representation * len(self.spans)) + s.representation) \
+                                    / (len(self.spans) + 1)
+        self.spans.append(s)
 
 
 
@@ -43,9 +56,15 @@ class ClusteringTask(FairseqTask):
         itr = self.prepare_batches_indices(args, set, firsts, data_size)
         for batch in itr:
 
+#    def add_trash_cluster(self):
+#        self.predicted_clusters.append(?)
 
     def get_predicted_clusters(self):
         return self.predicted_clusters
+
+    def add_cluster(self, c):
+        self.predicted_clusters.append(c)
+
 
     #RELATED TO BATCHES AND DATA LOADING
 
@@ -55,22 +74,6 @@ class ClusteringTask(FairseqTask):
             yield (beg, first)
             beg = first
         yield (beg, data_size)
-
-    #WHAT WE HAVE LEFT FROM TRANSLATION TASK
-
-    @staticmethod
-    def add_args(parser):
-        """Add task-specific arguments to the parser."""
-        # fmt: off
-        parser.add_argument('data', nargs='+', help='path(s) to data directorie(s)')
-        parser.add_argument('-s', '--source-lang', default=None, metavar='SRC',
-                            help='source language')
-        # fmt: on
-
-    def __init__(self, args, src_dict, tgt_dict):
-        super().__init__(args)
-        self.src_dict = src_dict
-        self.tgt_dict = tgt_dict
 
     def load_dataset(self, split, combine=False, **kwargs):
         return

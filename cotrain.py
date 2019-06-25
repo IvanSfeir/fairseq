@@ -112,8 +112,45 @@ def main(args, init_distributed=False):
 
     #leme
     writer = tb.SummaryWriter("/home/getalp/sfeirj/results/models/m17")
+    # Number of training epochs for phase 1 (training of trf1)
+    nb_epochs_trf1 = 1
     #leme
 
+    #leme PHASE 1: TRAIN TRF1 FOR AT LEAST 1 EPOCH TO GENERATE ENCODER OUTPUT FOR ALL SENTENCES
+    #------------------------------------------------------------------------------------------
+    while epoch_itr.epoch <= nb_epochs_trf1 and epoch_itr.epoch < max_epoch \
+        and lr > args.min_lr and trainer.get_num_updates() < max_update:
+        
+        #leme train first model for one epoch
+        #------------------------------------
+        train_trf1(args, trainer, task, epoch_itr, writer)
+        print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, \
+            trainer.get_num_updates(), max_update))
+
+        if epoch_itr.epoch % args.validate_interval == 0:
+            valid_losses = validate(args, trainer, task, epoch_itr, valid_subsets)
+
+        #leme
+        #writer.add_scalar("valid_loss", valid_losses[0], epoch_itr.epoch)
+        #leme
+
+        # only use first validation loss to update the learning rate
+        lr = trainer.lr_step(epoch_itr.epoch, valid_losses[0])
+
+        # save checkpoint
+        if epoch_itr.epoch % args.save_interval == 0:
+            save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
+
+        #leme change data granularity
+        #----------------------------
+        span_representations = change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
+        #print([len(s) for s in span_representations[:6]]) #nb of spans per sentence
+        #print(span_representations[:6]) #actual numerical tensor representations
+        assert False
+
+
+    #leme PHASE 2: TRAIN BOTH MODELS SIMULTANEOUSLY WITH 2 LOSSES USING GOLD SKLTS AND THEN PREDICTED SKLTS
+    #------------------------------------------------------------------------------------------------------
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
         #leme train first model for one epoch
         #------------------------------------
@@ -235,7 +272,7 @@ def train_trf1(args, trainer, task, epoch_itr, writer):
 
 
 def change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attention=False):
-    """Go from word gran to span gran after each epoch."""
+    """Go from word gran to span gran after each batch."""
     # returns a list containing in each index j the representations of all the mentions contained in the jth sentence
     data_size = task.dataset('train').tgt.size
     sentences = [[]] * data_size
