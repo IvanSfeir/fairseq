@@ -10,6 +10,7 @@ from tqdm import tqdm
 import pandas as pd
 import itertools
 import torch
+from fairseq.data import my_data_utils
 
 """
 GENERAL UTILS
@@ -27,7 +28,7 @@ LABELS TO SPAN REPRESENTATIONS
 """
 
 def labels_to_simple_span_representations(i, sentence, trainer, args):
-	"""Returns the list of span objects of each span in one BIO sentence with id i"""
+	"""Returns the list of span objects of each entity in one encoded sentence with id i"""
 	# Span object is defined in my_data_utils.py and contains, ebtre autres
 		# first: first index in the sentence
 		# length: span length
@@ -69,7 +70,8 @@ def labels_to_simple_span_representations(i, sentence, trainer, args):
 						else torch.zeros(args.encoder_embed_dim).to(torch.device("cuda")),
 					), 0)
 				# Create Span object
-				s = Span(i, sub_beg_idx, sub_end_idx-sub_beg_idx)
+				s = my_data_utils.Span(
+					sentence_id=i, first=sub_beg_idx, length=(sub_end_idx - sub_beg_idx))
 				s.update_representation(torch.squeeze(span_representation))
 				span_representations.append(s)
 		idx += 1

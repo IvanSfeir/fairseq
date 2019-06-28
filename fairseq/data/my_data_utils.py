@@ -22,18 +22,13 @@ class Span():
 
     id_generator = itertools.count()
 
-    def __init__(self, sentence_id, first, length):
+    def __init__(self, **kwargs):
         self.id = next(Span.id_generator)
-        self.sentence_id = sentence_id
-        self.first = first
-        self.length = length
-
-    def __init__(self, sentence_id, first, length, string):
-        self.id = next(Span.id_generator)
-        self.sentence_id = sentence_id
-        self.first = first
-        self.length = length
-        self.string = string
+        self.sentence_id = kwargs["sentence_id"]
+        self.first = kwargs["first"]
+        self.length = kwargs["length"]
+        if (kwargs.items()) == 4:
+            self.string = kwargs["string"]
 
     def update_representation(self, r):
         self.representation = r
@@ -126,7 +121,7 @@ def compute_gold_clusters_from_lists(l,  l_docs, l_parts, l_wordids, l_strings, 
                     if nb_stacked_mentions <= 0: #stop condition: add mention to output dictionaries
                         is_in_mention = False
                 span_string = " ".join(l_strings[i:j])
-                s = Span(sentence_id, i, j - i, span_string)
+                s = Span(sentence_id=sentence_id, first=i, length=(j - i), string=span_string)
                 document_clusters[int(entity_id)].append(s)
                 #add previous attribute to current span's antecedent attribute
                 if len(document_clusters[int(entity_id)]) == 1:

@@ -200,7 +200,7 @@ def train(args, trainer, task, epoch_itr, writer):
     max_update = args.max_update or math.inf
     #leme
     # explore batches
-    #for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
+    for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
         #if (samples[0]["net_input"]["src_lengths"][0] < 30) and (samples[0]["net_input"]["src_lengths"][0] != samples[0]["net_input"]["src_lengths"][-1]):
         #    print(i, samples[0]["net_input"]["src_lengths"])
         #if i == 6:
@@ -217,8 +217,8 @@ def train(args, trainer, task, epoch_itr, writer):
         #    assert False
     #assert False
     #for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
-        #print(samples[0]["id"])
-    #assert False
+        print(i, samples[0]["id"])
+    assert False
     #leme
 
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):

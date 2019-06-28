@@ -86,6 +86,7 @@ def main(args, init_distributed=False):
     # Initialize dataloader
     epoch_itr = task.get_batch_iterator(
         dataset=task.dataset(args.train_subset),
+        split="train",
         max_tokens=args.max_tokens,
         max_sentences=args.max_sentences,
         max_positions=max_positions,
@@ -112,15 +113,22 @@ def main(args, init_distributed=False):
 
     #leme
     writer = tb.SummaryWriter("/home/getalp/sfeirj/results/models/m17")
+    data_size = task.dataset('train').tgt.size
+    span_representations = [[]] * data_size
     # Number of training epochs for phase 1 (training of trf1)
     nb_epochs_trf1 = 1
+    #leme
+
+    #leme try to find gold tgt data
+    #print(task.dataset('train').tgt)
+    #print(dir(task.dataset('train').tgt))
     #leme
 
     #leme PHASE 1: TRAIN TRF1 FOR AT LEAST 1 EPOCH TO GENERATE ENCODER OUTPUT FOR ALL SENTENCES
     #------------------------------------------------------------------------------------------
     while epoch_itr.epoch <= nb_epochs_trf1 and epoch_itr.epoch < max_epoch \
         and lr > args.min_lr and trainer.get_num_updates() < max_update:
-        
+
         #leme train first model for one epoch
         #------------------------------------
         train_trf1(args, trainer, task, epoch_itr, writer)
@@ -143,10 +151,26 @@ def main(args, init_distributed=False):
 
         #leme change data granularity
         #----------------------------
-        span_representations = change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
-        #print([len(s) for s in span_representations[:6]]) #nb of spans per sentence
-        #print(span_representations[:6]) #actual numerical tensor representations
+        # for every document
+        for doc_id in range(len(train_firsts)):
+            # note that the doc_id itr starts with 0 and indicates docs in their original order in the data
+
+            # find first and last sentence indices
+            last_stc = -1 # idx of first sentence not to be considered
+            first_stc = train_firsts[doc_id]
+            if doc_id == len(train_firsts) - 1:
+                last_stc = data_size
+            else:
+                last_stc = train_firsts[doc_id + 1]
+            assert last_stc != -1
+
+            # save span representations of the current document
+            span_representations[first_stc:last_stc] = \
+                change_dataset_granularity(data_size, args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
+        print([len(s) for s in span_representations[:6]]) #nb of spans per sentence
+        print(span_representations[:6]) #actual numerical tensor representations
         assert False
+    assert False
 
 
     #leme PHASE 2: TRAIN BOTH MODELS SIMULTANEOUSLY WITH 2 LOSSES USING GOLD SKLTS AND THEN PREDICTED SKLTS
@@ -154,7 +178,7 @@ def main(args, init_distributed=False):
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
         #leme train first model for one epoch
         #------------------------------------
-        train_trf1(args, trainer, task, epoch_itr, writer)
+        train_trf1_trf2(args, trainer, task, epoch_itr, writer)
         print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, \
             trainer.get_num_updates(), max_update))
         #assert False
@@ -173,18 +197,6 @@ def main(args, init_distributed=False):
         # save checkpoint
         if epoch_itr.epoch % args.save_interval == 0:
             save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
-
-        #leme change data granularity
-        #----------------------------
-        span_representations = change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
-        #print([len(s) for s in span_representations[:6]]) #nb of spans per sentence
-        #print(span_representations[:6]) #actual numerical tensor representations
-        assert False
-
-        #leme train second model for one epoch
-        #-------------------------------------
-        data_size = task.dataset('train').tgt.size
-        second_task = ClusteringTask(args, "train", train_firsts, data_size)
         
 
     train_meter.stop()
@@ -196,7 +208,6 @@ def main(args, init_distributed=False):
     #leme
 
 
-#leme added writer parameters
 def train_trf1(args, trainer, task, epoch_itr, writer):
     """Train the first transformer model for one epoch."""
     # Update parameters every N batches
@@ -271,10 +282,96 @@ def train_trf1(args, trainer, task, epoch_itr, writer):
             meter.reset()
 
 
-def change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attention=False):
-    """Go from word gran to span gran after each batch."""
+def train_trf1_trf2(args, trainer, task, epoch_itr, writer):
+    """Train the first and second models for one epoch with shared document batches."""
+    # Update parameters every N batches
+    update_freq = args.update_freq[epoch_itr.epoch - 1] \
+            if epoch_itr.epoch <= len(args.update_freq) else args.update_freq[-1]
+
+    # Initialize data iterator
+    itr = epoch_itr.next_epoch_itr(
+        fix_batches_to_gpus=args.fix_batches_to_gpus,
+        shuffle=(epoch_itr.epoch >= args.curriculum),
+    )
+    itr = iterators.GroupedIterator(itr, update_freq)
+    progress = progress_bar.build_progress_bar(
+        args, itr, epoch_itr.epoch, no_progress_bar='simple',
+    )
+
+    extra_meters = collections.defaultdict(lambda: AverageMeter())
+    first_valid = args.valid_subset.split(',')[0]
+    max_update = args.max_update or math.inf
+
+    for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
+        log_output = trainer.train_step(samples)
+
+        # change granularity of concerned document
+        span_representations[min(samples[0]["id"]) : max(samples[0]["id"]) + 1] = \
+            change_doc_granularity(samples, args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
+
+        # train second model
+        second_task = ClusteringTask(args, "train", train_firsts, data_size)
+        clustering_log_output = second_task.train_step(samples)
+
+        if log_output is None:
+            continue
+        #leme extract encoder_output
+        if args.arch == "transformer":
+            #save encoder output in the right idx
+            for j in range(samples[0]["nsentences"]):
+                trainer.encoder_output_list[samples[0]["id"][j]] = trainer.model.encoder_output["encoder_out"][:, j, :]
+
+        #leme
+        # log mid-epoch stats
+        stats = get_training_stats(trainer)
+        for k, v in log_output.items():
+            if k in ['loss', 'nll_loss', 'ntokens', 'nsentences', 'sample_size']:
+                continue  # these are already logged above
+            if 'loss' in k:
+                extra_meters[k].update(v, log_output['sample_size'])
+            else:
+                extra_meters[k].update(v)
+            stats[k] = extra_meters[k].avg
+        progress.log(stats, tag='train', step=stats['num_updates'])
+
+        # ignore the first mini-batch in words-per-second calculation
+        if i == 0:
+            trainer.get_meter('wps').reset()
+
+        num_updates = trainer.get_num_updates()
+        if args.save_interval_updates > 0 and num_updates % args.save_interval_updates == 0 and num_updates > 0:
+            valid_losses = validate(args, trainer, task, epoch_itr, [first_valid])
+            save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
+
+        if num_updates >= max_update:
+            break
+
+    # log end-of-epoch stats
+    stats = get_training_stats(trainer)
+    for k, meter in extra_meters.items():
+        stats[k] = meter.avg
+    progress.print(stats, tag='train', step=stats['num_updates'])
+
+    #leme
+    #writer.add_scalar("loss", stats["loss"].avg, epoch_itr.epoch)
+    #leme
+
+    # reset training meters
+    for k in [
+        'train_loss', 'train_nll_loss', 'wps', 'ups', 'wpb', 'bsz', 'gnorm', 'clip',
+    ]:
+        meter = trainer.get_meter(k)
+        if meter is not None:
+            meter.reset()
+
+
+# We have coded two change_granularity functions for the sole purpose of optimizing data browsing
+# In particular, we need a dataset-level function just in case 
+# and a document-level one for the second phase where batches are documents
+
+def change_dataset_granularity(data_size, args, trainer, task, epoch_itr, use_gold=True, use_attention=False):
+    """Go from word gran to span gran for the entire dataset."""
     # returns a list containing in each index j the representations of all the mentions contained in the jth sentence
-    data_size = task.dataset('train').tgt.size
     sentences = [[]] * data_size
 
     if use_gold:
@@ -314,6 +411,38 @@ def change_granularity(args, trainer, task, epoch_itr, use_gold=True, use_attent
     return span_representations
 
 
+def change_doc_granularity(samples, args, trainer, task, epoch_itr, use_gold=True, use_attention=False):
+    """Go from word gran to span gran after the samples of each document batch."""
+    # returns a list containing in each index j the representations of all the mentions contained in the jth sentence
+    # for sentences in the concerned document
+
+    first_stc = min(samples[0]["id"])
+
+    sentences = [[]] * samples[0]["nsentences"] # object which will contain the encoded sentences
+
+    if use_gold:
+        for j in range(samples[0]["nsentences"]):
+            # for every sentence
+            sentences[samples[0]["id"][j] - first_stc] = samples[0]["target"][j, :]
+
+    else:
+        #TODO sentences = predictions
+        #DON'T FORGET TO ADJUST PREDICTIONS LENGTHS
+        assert False
+
+    span_representations = [[]] * samples[0]["nsentences"]
+    # Every sentence alone
+    for i in samples[0]["id"]:
+        if use_attention == False:
+            span_representations[i - first_stc] = \
+                cotrain_utils.labels_to_simple_span_representations(i, sentences[i - first_stc], trainer, args)
+        else:
+            span_representations[i - first_stc] = \
+                cotrain_utils.labels_to_attention_span_representations(i, sentences[i - first_stc], trainer, args)
+
+    return span_representations
+
+
 def get_training_stats(trainer):
     stats = collections.OrderedDict()
     stats['loss'] = trainer.get_meter('train_loss')
@@ -346,6 +475,7 @@ def validate(args, trainer, task, epoch_itr, subsets):
         # Initialize data iterator
         itr = task.get_batch_iterator(
             dataset=task.dataset(subset),
+            split="valid",
             max_tokens=args.max_tokens,
             max_sentences=args.max_sentences_valid,
             max_positions=utils.resolve_max_positions(

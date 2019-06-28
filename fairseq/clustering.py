@@ -79,3 +79,7 @@ class ClusteringTask(FairseqTask):
         return
 
 
+    #RELATED TO LOSS, FORWARD AND BACKWARD
+
+    def compute_loss(self):
+        
