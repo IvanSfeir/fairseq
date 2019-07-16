@@ -28,13 +28,15 @@ LABELS TO SPAN REPRESENTATIONS
 """
 
 def labels_to_simple_span_representations(i, sentence, trainer, args):
-	"""Returns the list of span objects of each entity in one encoded sentence with id i"""
-	# Span object is defined in my_data_utils.py and contains, ebtre autres
+	"""Returns the list of span objects in one encoded sentence with id i"""
+	# Max spans as well as insid spans are considered
+	# Span object is defined in my_data_utils.py and contains, among others:
 		# first: first index in the sentence
 		# length: span length
 		# representation: 1d tensor containing the span's representation
 	# Uses simple representation by averaging
-	# It is interesting to use either golden data or predictions
+	# No information related to entities
+	# It is interesting to pair this function with either gold data or predictions
 
 	def find_all_sub(beg_idx, end_idx):
 		for sub_beg_idx in range(beg_idx, end_idx):

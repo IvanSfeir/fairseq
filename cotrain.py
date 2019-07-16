@@ -41,6 +41,9 @@ def main(args, init_distributed=False):
     # Setup task, e.g., translation, language modeling, etc.
     task = tasks.setup_task(args)
 
+    # Setup second task (clustering)
+    second_task = ClusteringTask(args)
+
     # Load dataset splits
     load_dataset_splits(task, ['train', 'valid'])
 
@@ -149,34 +152,14 @@ def main(args, init_distributed=False):
         if epoch_itr.epoch % args.save_interval == 0:
             save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
 
-        #leme change data granularity
-        #----------------------------
-        # for every document
-        for doc_id in range(len(train_firsts)):
-            # note that the doc_id itr starts with 0 and indicates docs in their original order in the data
-
-            # find first and last sentence indices
-            last_stc = -1 # idx of first sentence not to be considered
-            first_stc = train_firsts[doc_id]
-            if doc_id == len(train_firsts) - 1:
-                last_stc = data_size
-            else:
-                last_stc = train_firsts[doc_id + 1]
-            assert last_stc != -1
-
-            # save span representations of the current document
-            span_representations[first_stc:last_stc] = \
-                change_dataset_granularity(data_size, args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
-        print([len(s) for s in span_representations[:6]]) #nb of spans per sentence
-        print(span_representations[:6]) #actual numerical tensor representations
         assert False
-    assert False
 
 
     #leme PHASE 2: TRAIN BOTH MODELS SIMULTANEOUSLY WITH 2 LOSSES USING GOLD SKLTS AND THEN PREDICTED SKLTS
     #------------------------------------------------------------------------------------------------------
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
-        #leme train first model for one epoch
+
+        #leme train both models for one epoch
         #------------------------------------
         train_trf1_trf2(args, trainer, task, epoch_itr, writer)
         print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, \
@@ -197,6 +180,7 @@ def main(args, init_distributed=False):
         # save checkpoint
         if epoch_itr.epoch % args.save_interval == 0:
             save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
+
         
 
     train_meter.stop()
@@ -282,7 +266,7 @@ def train_trf1(args, trainer, task, epoch_itr, writer):
             meter.reset()
 
 
-def train_trf1_trf2(args, trainer, task, epoch_itr, writer):
+def train_trf1_trf2(args, trainer, task, second_task, epoch_itr, writer):
     """Train the first and second models for one epoch with shared document batches."""
     # Update parameters every N batches
     update_freq = args.update_freq[epoch_itr.epoch - 1] \
@@ -302,24 +286,30 @@ def train_trf1_trf2(args, trainer, task, epoch_itr, writer):
     first_valid = args.valid_subset.split(',')[0]
     max_update = args.max_update or math.inf
 
+    # FOR EVERY BATCH/DOCUMENT
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
+
+        # train first model
         log_output = trainer.train_step(samples)
+
+        # extract the first encoder's updated output
+        if args.arch == "transformer":
+            # save encoder output in the right idx
+            for j in range(samples[0]["nsentences"]):
+                trainer.encoder_output_list[samples[0]["id"][j]] = trainer.model.encoder_output["encoder_out"][:, j, :]
 
         # change granularity of concerned document
         span_representations[min(samples[0]["id"]) : max(samples[0]["id"]) + 1] = \
-            change_doc_granularity(samples, args, trainer, task, epoch_itr, use_gold=True, use_attention=False)
+            change_doc_granularity(samples, args, trainer, second_task, epoch_itr, use_gold=True, use_attention=False)
 
         # train second model
-        second_task = ClusteringTask(args, "train", train_firsts, data_size)
-        clustering_log_output = second_task.train_step(samples)
+        clustering_log_output = second_task.train_step(
+            samples, span_representations[min(samples[0]["id"]) : max(samples[0]["id"]) + 1])
 
         if log_output is None:
             continue
-        #leme extract encoder_output
-        if args.arch == "transformer":
-            #save encoder output in the right idx
-            for j in range(samples[0]["nsentences"]):
-                trainer.encoder_output_list[samples[0]["id"][j]] = trainer.model.encoder_output["encoder_out"][:, j, :]
+
+        assert False
 
         #leme
         # log mid-epoch stats
@@ -411,7 +401,7 @@ def change_dataset_granularity(data_size, args, trainer, task, epoch_itr, use_go
     return span_representations
 
 
-def change_doc_granularity(samples, args, trainer, task, epoch_itr, use_gold=True, use_attention=False):
+def change_doc_granularity(samples, args, trainer, second_task, epoch_itr, use_gold=True, use_attention=False):
     """Go from word gran to span gran after the samples of each document batch."""
     # returns a list containing in each index j the representations of all the mentions contained in the jth sentence
     # for sentences in the concerned document
