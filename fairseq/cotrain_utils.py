@@ -84,6 +84,23 @@ def labels_to_attention_span_representations(i, sentence, trainer, args):
 	#TODO
 	return
 
+def load_gold_mentions_strings(split):
+	parent_path = "/home/getalp/sfeirj/data/"
+	file_name = split + ".gold_mentions_dict.txt"
+	dictionary = dict()
+	with open(parent_path + file_name, "r") as f:
+		i = 0
+		for line in f.readlines():
+			dictionary[line[:-1]] = i
+			i += 1
+	return dictionary
+
+def is_a_mention(span, dictionary):
+	if span in dictionary.keys():
+		return True
+	return False
+
+
 """
 USING TRF1 PREDICTIONS
 """
@@ -92,7 +109,7 @@ def adjust_predictions():
 	# Saves predictions in a CoNLL-friendly format in parent path
 	# Output data is ready for conlleval.pl script
 
-	parent_path = "/home/getalp/sfeirj/data/"
+	parent_path = "/home/getalp/sfeirj/sfeirseq/maxmentions-bin/"
 	# Build dataframe
 	predictions = pd.read_csv("{}{}_predictions".format(parent_path, set), delimiter="\\t", \
 		names=["source","target","prediction"])
