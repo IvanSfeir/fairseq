@@ -118,8 +118,8 @@ def main(args, init_distributed=False):
     writer = tb.SummaryWriter("/home/getalp/sfeirj/results/models/m17")
     data_size = task.dataset('train').tgt.size
     span_representations = [[]] * data_size
-    # Number of training epochs for phase 1 (training of trf1)
-    nb_epochs_trf1 = 1
+    # Number of training epochs for phase 1 (training of m1)
+    nb_epochs_m1 = 1
     #leme
 
     #leme try to find gold tgt data
@@ -127,14 +127,14 @@ def main(args, init_distributed=False):
     #print(dir(task.dataset('train').tgt))
     #leme
 
-    #leme PHASE 1: TRAIN TRF1 FOR AT LEAST 1 EPOCH TO GENERATE ENCODER OUTPUT FOR ALL SENTENCES
+    #leme PHASE 1: TRAIN M1 FOR AT LEAST 1 EPOCH TO GENERATE ENCODER OUTPUT FOR ALL SENTENCES
     #------------------------------------------------------------------------------------------
-    while epoch_itr.epoch <= nb_epochs_trf1 and epoch_itr.epoch < max_epoch \
+    while epoch_itr.epoch <= nb_epochs_m1 and epoch_itr.epoch < max_epoch \
         and lr > args.min_lr and trainer.get_num_updates() < max_update:
 
         #leme train first model for one epoch
         #------------------------------------
-        train_trf1(args, trainer, task, epoch_itr, writer)
+        train_m1(args, trainer, task, epoch_itr, writer)
         print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, \
             trainer.get_num_updates(), max_update))
 
@@ -161,7 +161,7 @@ def main(args, init_distributed=False):
 
         #leme train both models for one epoch
         #------------------------------------
-        train_trf1_trf2(args, trainer, task, epoch_itr, writer)
+        train_m1_m2(args, trainer, task, epoch_itr, writer)
         print("| Loop conditions params: {} {} {} {} {} {}".format(lr, args.min_lr, epoch_itr.epoch, max_epoch, \
             trainer.get_num_updates(), max_update))
         #assert False
@@ -192,7 +192,7 @@ def main(args, init_distributed=False):
     #leme
 
 
-def train_trf1(args, trainer, task, epoch_itr, writer):
+def train_m1(args, trainer, task, epoch_itr, writer):
     """Train the first transformer model for one epoch."""
     # Update parameters every N batches
     update_freq = args.update_freq[epoch_itr.epoch - 1] \
@@ -266,7 +266,7 @@ def train_trf1(args, trainer, task, epoch_itr, writer):
             meter.reset()
 
 
-def train_trf1_trf2(args, trainer, task, second_task, epoch_itr, writer):
+def train_m1_m2(args, trainer, task, second_task, epoch_itr, writer):
     """Train the first and second models for one epoch with shared document batches."""
     # Update parameters every N batches
     update_freq = args.update_freq[epoch_itr.epoch - 1] \

@@ -75,9 +75,11 @@ class ClusteringTask(FairseqTask):
     def __init__(self, args):
 
         self.embed_dim = args.encoder_embed_dim
-        self.fc1 = nn.Linear(self.embed_dim * 5, self.embed_dim * 4)
-        self.fc2 = nn.Linear(self.embed_dim * 4, self.embed_dim * 2)
-        self.fc3 = nn.Linear(self.embed_dim * 6, self.nb_clusters + 1)
+        self.lin_ffnn_1 = nn.Linear(self.embed_dim * 5, self.embed_dim * 4)
+        self.lin_ffnn_2 = nn.Linear(self.embed_dim * 4, self.embed_dim * 2)
+        self.lin_decision_maker = nn.Linear(self.embed_dim * 6, self.nb_clusters + 1)
+        self.lin_loss_f = nn.Linear(self.embed_dim * 2, 1)
+        self.lin_loss_g = nn.Linear(self.embed_dim * 4, self.embed_dim * 2)
 
 
         self.clusters_attn = MultiheadAttention(
@@ -109,14 +111,14 @@ class ClusteringTask(FairseqTask):
 
         clusters = torch.Tensor([c.get_extended_representation() for c in clusters_list])
 
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = F.relu(self.lin_ffnn_1(x))
+        x = self.lin_ffnn_2(x)
 
         ffnn_representation = x
         x, _ = self.clusters_attn(query=x, key=clusters, value=clusters)
         x = ffnn_representation + x
 
-        x = F.softmax(self.fc3(x), 0)
+        x = F.softmax(self.lin_decision_maker(x), 0)
 
         return x, ffnn_representation
 
@@ -149,7 +151,7 @@ class ClusteringTask(FairseqTask):
                 x, ffnn_representation = self.forward(span_representations[i][j], self.get_predicted_clusters())
                 span_representations[i][j].update_ffnn_representation(ffnn_representation)
 
-        loss, sample_size, logging_output = criterion(model, sample)
+        loss, sample_size, logging_output = criterion(model, sample, span_representations)
         if ignore_grad:
             loss *= 0
         #optimizer.backward(loss) #delete and use line right under it without creating an optimizer object
